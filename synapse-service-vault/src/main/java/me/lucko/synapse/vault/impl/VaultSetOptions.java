@@ -23,27 +23,38 @@
  *  SOFTWARE.
  */
 
-package me.lucko.synapse.vault;
+package me.lucko.synapse.vault.impl;
 
 import me.lucko.synapse.permission.context.Context;
-import me.lucko.synapse.permission.options.UnsetOptions;
+import me.lucko.synapse.permission.options.SetOptions;
 
 import java.util.Collections;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
 
-public class VaultUnsetOptions implements UnsetOptions {
-    public static final VaultUnsetOptions INSTANCE = new VaultUnsetOptions();
+public class VaultSetOptions implements SetOptions {
+    public static final VaultSetOptions INSTANCE = new VaultSetOptions();
 
+    private final boolean negated;
     private final String world;
 
-    private VaultUnsetOptions() {
-        this(null);
+    private VaultSetOptions() {
+        this(false, null);
     }
 
-    private VaultUnsetOptions(String world) {
+    private VaultSetOptions(boolean negated, String world) {
+        this.negated = negated;
         this.world = world;
+    }
+
+    public String getWorld() {
+        return world;
+    }
+
+    @Override
+    public boolean supportsNegation() {
+        return true;
     }
 
     @Override
@@ -53,30 +64,41 @@ public class VaultUnsetOptions implements UnsetOptions {
 
     @Nonnull
     @Override
-    public UnsetOptions withExpiry(long expiryTime) throws UnsupportedOperationException {
+    public SetOptions negated() {
+        return new VaultSetOptions(true, world);
+    }
+
+    @Nonnull
+    @Override
+    public SetOptions notNegated() {
+        return new VaultSetOptions(false, world);
+    }
+
+    @Nonnull
+    @Override
+    public SetOptions withExpiry(long expiryTime) throws UnsupportedOperationException {
         throw new UnsupportedOperationException();
     }
 
     @Nonnull
     @Override
-    public UnsetOptions matchAnyExpiry() {
+    public SetOptions noExpiry() {
         return this;
     }
 
     @Nonnull
     @Override
-    public UnsetOptions withContexts(@Nonnull Set<Context> contexts) {
-        return new VaultUnsetOptions(VaultPermissionService.getWorld(contexts));
-    }
-
-    @Nonnull
-    @Override
-    public UnsetOptions matchAnyContext() {
-        return new VaultUnsetOptions(null);
+    public SetOptions withContexts(@Nonnull Set<Context> contexts) {
+        return new VaultSetOptions(negated, VaultPermissionService.getWorld(contexts));
     }
 
     @Override
-    public boolean shouldMatchExpiry() {
+    public boolean shouldNegate() {
+        return negated;
+    }
+
+    @Override
+    public boolean shouldExpire() {
         return false;
     }
 
@@ -85,17 +107,13 @@ public class VaultUnsetOptions implements UnsetOptions {
         throw new IllegalStateException();
     }
 
+    @Nonnull
     @Override
-    public boolean shouldMatchContexts() {
-        return world != null;
-    }
-
-    @Override
-    public Set<Context> getContexts() throws IllegalStateException {
+    public Set<Context> getContexts() {
         if (world == null) {
-            throw new IllegalStateException();
+            return Collections.emptySet();
+        } else {
+            return Collections.singleton(new VaultWorldContext(world));
         }
-
-        return Collections.singleton(new VaultWorldContext(world));
     }
 }

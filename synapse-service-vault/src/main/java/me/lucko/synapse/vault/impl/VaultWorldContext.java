@@ -23,7 +23,7 @@
  *  SOFTWARE.
  */
 
-package me.lucko.synapse.vault;
+package me.lucko.synapse.vault.impl;
 
 import me.lucko.synapse.generic.SimpleContext;
 

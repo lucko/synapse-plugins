@@ -23,7 +23,7 @@
  *  SOFTWARE.
  */
 
-package me.lucko.synapse.vault;
+package me.lucko.synapse.vault.impl;
 
 import me.lucko.synapse.generic.future.CompletedFutureResult;
 import me.lucko.synapse.permission.PermissionService;
@@ -55,6 +55,25 @@ public class VaultPermissionService implements PermissionService {
     public VaultPermissionService(Permission vaultPerms, Chat vaultChat) {
         this.vaultPerms = vaultPerms;
         this.vaultChat = vaultChat;
+    }
+
+    public Permission getVaultPerms() {
+         return vaultPerms;
+    }
+
+    public Chat getVaultChat() {
+        return vaultChat;
+    }
+
+    @Nonnull
+    @Override
+    public String getProviderName() {
+        String name = vaultPerms.getName();
+        if (!vaultChat.getName().equals(name)) {
+            name = name + "," + vaultChat.getName();
+        }
+
+        return "synapse-vault: " + name;
     }
 
     @Nonnull

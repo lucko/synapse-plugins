@@ -25,18 +25,7 @@
 
 package me.lucko.synapse.vaultprovider;
 
-import me.lucko.synapse.permission.PermissionService;
-
-import net.milkbowl.vault.chat.Chat;
-import net.milkbowl.vault.permission.Permission;
-
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.server.ServiceRegisterEvent;
-import org.bukkit.event.server.ServiceUnregisterEvent;
-import org.bukkit.permissions.PermissionAttachmentInfo;
-import org.bukkit.plugin.RegisteredServiceProvider;
-import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -44,72 +33,13 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public class VaultPlugin extends JavaPlugin implements Listener {
 
-    private SynapseVaultPermission permission = null;
-    private SynapseVaultChat chat = null;
+    private VaultRegistrar registrar;
 
     @Override
     public void onEnable() {
-        update();
-        getServer().getPluginManager().registerEvents(this, this);
-    }
+        registrar = new VaultRegistrar(this);
+        getServer().getPluginManager().registerEvents(registrar, this);
 
-    public void update() {
-        PermissionService service = getServer().getServicesManager().load(PermissionService.class);
-
-        if (service == null) {
-            // unregister our services
-            unregister(true);
-            return;
-        }
-
-        // try to refresh
-        register(service);
-    }
-
-    private void unregister(boolean notify) {
-        if (permission != null) {
-            if (notify) {
-                getLogger().info("Unregistering synapse Vault-Permission due to PermissionService provider change.");
-            }
-            getServer().getServicesManager().unregister(Permission.class, permission);
-            permission = null;
-        }
-        if (chat != null) {
-            if (notify) {
-                getLogger().info("Unregistering synapse Vault-Chat due to PermissionService provider change.");
-            }
-            getServer().getServicesManager().unregister(Chat.class, chat);
-            chat = null;
-        }
-    }
-
-    private void register(PermissionService service) {
-        if (permission != null && permission.service == service && chat != null && chat.service == service) {
-            return; // no change
-        }
-
-        // change
-        unregister(false);
-        getLogger().info("Providing Vault Permission/Chat using synapse: " + service.getProviderName());
-        permission = new SynapseVaultPermission(service);
-        chat = new SynapseVaultChat(service, permission);
-        getServer().getServicesManager().register(Permission.class, permission, this, ServicePriority.High);
-        getServer().getServicesManager().register(Chat.class, chat, this, ServicePriority.High);
-    }
-
-    @EventHandler
-    public void onServiceRegister(ServiceRegisterEvent e) {
-        RegisteredServiceProvider<?> provider = e.getProvider();
-        if (provider.getService().equals(PermissionService.class)) {
-            update();
-        }
-    }
-
-    @EventHandler
-    public void onServiceUnregister(ServiceUnregisterEvent e) {
-        RegisteredServiceProvider<?> provider = e.getProvider();
-        if (provider.getService().equals(PermissionService.class)) {
-            update();
-        }
+        registrar.update();
     }
 }

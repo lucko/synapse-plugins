@@ -23,9 +23,13 @@
  *  SOFTWARE.
  */
 
-package me.lucko.synapse.vault;
+package me.lucko.synapse.vault.impl;
+
+import com.google.common.collect.ImmutableList;
 
 import me.lucko.synapse.generic.AbstractSubject;
+import me.lucko.synapse.generic.SimpleGroupMembership;
+import me.lucko.synapse.generic.SimplePermissionNode;
 import me.lucko.synapse.generic.future.CompletedFutureAction;
 import me.lucko.synapse.permission.context.Context;
 import me.lucko.synapse.permission.membership.GroupMembership;
@@ -33,57 +37,115 @@ import me.lucko.synapse.permission.node.PermissionNode;
 import me.lucko.synapse.permission.options.SetOptions;
 import me.lucko.synapse.permission.options.UnsetOptions;
 import me.lucko.synapse.permission.subject.Group;
+import me.lucko.synapse.permission.subject.User;
 import me.lucko.synapse.util.FutureAction;
 
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
+import org.bukkit.permissions.PermissionAttachmentInfo;
+
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class VaultGroup extends AbstractSubject implements Group {
+public class VaultUser extends AbstractSubject implements User {
     private final VaultPermissionService service;
-    private final String name;
+    private final UUID uuid;
 
-    public VaultGroup(VaultPermissionService service, String name) {
+    public VaultUser(VaultPermissionService service, UUID uuid) {
         super(service);
         this.service = service;
-        this.name = name;
+        this.uuid = uuid;
+    }
+
+    private OfflinePlayer player() {
+        return Objects.requireNonNull(Bukkit.getOfflinePlayer(uuid), "player is null");
+    }
+
+    private String currentWorld() {
+        OfflinePlayer player = player();
+        if (!player.isOnline()) {
+            return null;
+        } else {
+            return player.getPlayer().getWorld().getName();
+        }
     }
 
     @Nonnull
     @Override
-    public String getName() {
-        return name;
+    public UUID getUniqueId() {
+        return uuid;
+    }
+
+    @Nullable
+    @Override
+    public String getUsername() {
+        return player().getName();
+    }
+
+    @Nullable
+    @Override
+    public Group getPrimaryGroup() {
+        return service.getGroup(service.vaultPerms.getPrimaryGroup(null, player()));
+    }
+
+    @Nullable
+    @Override
+    public Group getPrimaryGroup(Set<Context> contexts) {
+        return service.getGroup(service.vaultPerms.getPrimaryGroup(VaultPermissionService.getWorld(contexts), player()));
     }
 
     @Nonnull
     @Override
     public Collection<PermissionNode> getPermissions() {
-        throw new UnsupportedOperationException("Group#getPermissions is not supported by the Vault implementation");
+        OfflinePlayer player = player();
+        if (player == null || !player.isOnline()) {
+            return Collections.emptyList();
+        }
+
+        Player p = player.getPlayer();
+        ImmutableList.Builder<PermissionNode> nodes = ImmutableList.builder();
+        for (PermissionAttachmentInfo pai : p.getEffectivePermissions()) {
+            nodes.add(new SimplePermissionNode(pai.getPermission(), pai.getValue(), Collections.emptySet()));
+        }
+
+        return nodes.build();
     }
 
     @Nonnull
     @Override
     public Collection<GroupMembership> getGroups() {
-        throw new UnsupportedOperationException("Group#getGroups is not supported by the Vault implementation");
+        String[] groups = service.vaultPerms.getPlayerGroups(null, player());
+        return Arrays.stream(groups)
+                .map(service::getGroup)
+                .filter(Objects::nonNull)
+                .map(g -> new SimpleGroupMembership(g, Collections.emptySet()))
+                .collect(Collectors.toSet());
     }
 
     @Override
     public boolean checkPermission(@Nonnull String permission) {
-        return service.vaultPerms.groupHas((String) null, name, permission);
+        return service.vaultPerms.playerHas(null, player(), permission);
     }
 
     @Override
     public boolean checkPermission(@Nonnull String permission, @Nonnull Set<Context> contexts) {
-        return service.vaultPerms.groupHas(VaultPermissionService.getWorld(contexts), name, permission);
+        return service.vaultPerms.playerHas(VaultPermissionService.getWorld(contexts), player(), permission);
     }
 
     @Nonnull
     @Override
     public FutureAction setPermission(@Nonnull String permission, @Nonnull SetOptions options) {
         VaultSetOptions opts = (VaultSetOptions) options;
-        service.vaultPerms.groupAdd(opts.getWorld(), name, permission);
+        service.vaultPerms.playerAdd(opts.getWorld(), player(), permission);
         return CompletedFutureAction.INSTANCE;
     }
 
@@ -91,63 +153,67 @@ public class VaultGroup extends AbstractSubject implements Group {
     @Override
     public FutureAction unsetPermission(@Nonnull String permission, @Nonnull UnsetOptions options) {
         VaultSetOptions opts = (VaultSetOptions) options;
-        service.vaultPerms.groupRemove(opts.getWorld(), name, permission);
+        service.vaultPerms.playerRemove(opts.getWorld(), player(), permission);
         return CompletedFutureAction.INSTANCE;
     }
 
     @Nonnull
     @Override
     public FutureAction addGroup(@Nonnull Group group, @Nonnull SetOptions options) {
-        throw new UnsupportedOperationException("Group#addGroup is not supported by the Vault implementation");
+        VaultSetOptions opts = (VaultSetOptions) options;
+        service.vaultPerms.playerAddGroup(opts.getWorld(), player(), group.getName());
+        return CompletedFutureAction.INSTANCE;
     }
 
     @Nonnull
     @Override
     public FutureAction removeGroup(@Nonnull Group group, @Nonnull UnsetOptions options) {
-        throw new UnsupportedOperationException("Group#removeGroup is not supported by the Vault implementation");
+        VaultSetOptions opts = (VaultSetOptions) options;
+        service.vaultPerms.playerRemoveGroup(opts.getWorld(), player(), group.getName());
+        return CompletedFutureAction.INSTANCE;
     }
 
     @Nullable
     @Override
     public String getPrefix() {
-        return service.vaultChat.getGroupPrefix((String) null, name);
+        return service.vaultChat.getPlayerPrefix(currentWorld(), player());
     }
 
     @Nullable
     @Override
     public String getPrefix(@Nonnull Set<Context> contexts) {
-        return service.vaultChat.getGroupPrefix(VaultPermissionService.getWorld(contexts), name);
+        return service.vaultChat.getPlayerPrefix(VaultPermissionService.getWorld(contexts), player());
     }
 
     @Nullable
     @Override
     public String getSuffix() {
-        return service.vaultChat.getGroupSuffix((String) null, name);
+        return service.vaultChat.getPlayerSuffix(currentWorld(), player());
     }
 
     @Nullable
     @Override
     public String getSuffix(@Nonnull Set<Context> contexts) {
-        return service.vaultChat.getGroupSuffix(VaultPermissionService.getWorld(contexts), name);
+        return service.vaultChat.getPlayerSuffix(VaultPermissionService.getWorld(contexts), player());
     }
 
     @Nullable
     @Override
     public String getMetadata(@Nonnull String key) {
-        return service.vaultChat.getGroupInfoString((String) null, name, key, null);
+        return service.vaultChat.getPlayerInfoString(currentWorld(), player(), key, null);
     }
 
     @Nullable
     @Override
     public String getMetadata(@Nonnull String key, @Nonnull Set<Context> contexts) {
-        return service.vaultChat.getGroupInfoString(VaultPermissionService.getWorld(contexts), name, key, null);
+        return service.vaultChat.getPlayerInfoString(VaultPermissionService.getWorld(contexts), player(), key, null);
     }
 
     @Nonnull
     @Override
     public FutureAction setPrefix(@Nullable String prefix, @Nonnull SetOptions options) {
         VaultSetOptions opts = (VaultSetOptions) options;
-        service.vaultChat.setGroupPrefix(opts.getWorld(), name, prefix);
+        service.vaultChat.setPlayerPrefix(opts.getWorld(), player(), prefix);
         return CompletedFutureAction.INSTANCE;
     }
 
@@ -155,7 +221,7 @@ public class VaultGroup extends AbstractSubject implements Group {
     @Override
     public FutureAction setSuffix(@Nullable String suffix, @Nonnull SetOptions options) {
         VaultSetOptions opts = (VaultSetOptions) options;
-        service.vaultChat.setGroupSuffix(opts.getWorld(), name, suffix);
+        service.vaultChat.setPlayerSuffix(opts.getWorld(), player(), suffix);
         return CompletedFutureAction.INSTANCE;
     }
 
@@ -163,7 +229,8 @@ public class VaultGroup extends AbstractSubject implements Group {
     @Override
     public FutureAction setMetadata(@Nonnull String key, @Nullable String value, @Nonnull SetOptions options) {
         VaultSetOptions opts = (VaultSetOptions) options;
-        service.vaultChat.setGroupInfoString(opts.getWorld(), name, key, value);
+        service.vaultChat.setPlayerInfoString(opts.getWorld(), player(), key, value);
         return CompletedFutureAction.INSTANCE;
     }
+
 }

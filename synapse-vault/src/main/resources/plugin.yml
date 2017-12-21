@@ -1,7 +1,9 @@
 name: synapse-vault
+main: me.lucko.synapse.vaultprovider.VaultPlugin
 description: Implements the Vault permission and chat API using synapse
 author: Luck
 version: ${project.version}
+load: STARTUP
 
 # load before Vault, so plugins depending on Vault also depend on us.
 loadbefore: [Vault]

@@ -1,0 +1,6 @@
+name: synapse
+main: me.lucko.synapse.plugin.SynapsePlugin
+description: A service based API for interacting with Bukkit plugins
+author: Luck
+version: ${project.version}
+load: STARTUP
