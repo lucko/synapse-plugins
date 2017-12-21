@@ -1,0 +1,12 @@
+name: synapse-service-permissionsex
+main: me.lucko.synapse.pex.SynapsePexPlugin
+description: Implements the synapse permissions API using PermissionsEx
+author: Luck
+version: ${project.version}
+load: STARTUP
+
+# load before synapse, so plugins depending on the API also depend on us.
+loadbefore: [synapse]
+
+# depend on PEX, so we load before
+depend: [PermissionsEx]

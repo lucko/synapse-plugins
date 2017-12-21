@@ -13,6 +13,7 @@
     <modules>
         <module>synapse-generic</module>
         <module>synapse-plugin</module>
+        <module>synapse-service-permissionsex</module>
         <module>synapse-service-vault</module>
         <module>synapse-vault</module>
     </modules>
@@ -26,5 +27,16 @@
         <compiler.version>3.7.0</compiler.version>
         <shade.version>3.1.0</shade.version>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>spigot-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+        <repository>
+            <id>luck-repo</id>
+            <url>https://repo.lucko.me/</url>
+        </repository>
+    </repositories>
 
 </project>
