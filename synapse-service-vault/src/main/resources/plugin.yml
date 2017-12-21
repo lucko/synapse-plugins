@@ -1,0 +1,10 @@
+name: synapse-service-vault
+description: Implements the synapse permissions API using Vault
+author: Luck
+version: ${project.version}
+
+# load before synapse, so plugins depending on the API also depend on us.
+loadbefore: [synapse]
+
+# depend on Vault, so we load before
+depend: [Vault]

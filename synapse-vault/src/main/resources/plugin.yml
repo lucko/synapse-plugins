@@ -1,0 +1,10 @@
+name: synapse-vault
+description: Implements the Vault permission and chat API using synapse
+author: Luck
+version: ${project.version}
+
+# load before Vault, so plugins depending on Vault also depend on us.
+loadbefore: [Vault]
+
+# depend on synapse, so we load before
+depend: [synapse]
